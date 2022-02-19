@@ -27,7 +27,6 @@ in vec3 lightDir;
 in vec3 vNormal;
 // vector from fragment to camera (in view coordinate)
 in vec3 vViewPosition;
-in vec3 vertex;
 
 // ambient, diffusive and specular components (passed from the application)
 uniform vec3 ambientColor;
@@ -61,7 +60,7 @@ subroutine uniform ill_model Illumination_Model;
 subroutine(ill_model)
 vec3 Lambert() // this name is the one which is detected by the SetupShaders() function in the main application, and the one used to swap subroutines
 {
-    // normalization of the per-fragment normal
+    /*// normalization of the per-fragment normal
     vec3 N = normalize(vNormal);
     // normalization of the per-fragment light incidence direction
     vec3 L = normalize(lightDir.xyz);
@@ -70,7 +69,39 @@ vec3 Lambert() // this name is the one which is detected by the SetupShaders() f
     float lambertian = max(dot(L,N), 0.0);
 
     // Lambert illumination model  
-    return vec3(Kd * lambertian * diffuseColor);
+    return vec3(Kd * lambertian * diffuseColor);*/
+    // ambient component can be calculated at the beginning
+    vec3 color = Ka*ambientColor;
+
+    // normalization of the per-fragment normal
+    vec3 N = normalize(vNormal);
+    
+    // normalization of the per-fragment light incidence direction
+    vec3 L = normalize(lightDir.xyz);
+
+    // Lambert coefficient
+    float lambertian = max(dot(L,N), 0.0);
+
+    // if the lambert coefficient is positive, then I can calculate the specular component
+    if(lambertian > 0.0)
+    {
+      // the view vector has been calculated in the vertex shader, already negated to have direction from the mesh to the camera
+      vec3 V = normalize( vViewPosition );
+
+      // in the Blinn-Phong model we do not use the reflection vector, but the half vector
+      vec3 H = normalize(L + V);
+
+      // we use H to calculate the specular component
+      float specAngle = max(dot(H, N), 0.0);
+      // shininess application to the specular component
+      float specular = pow(specAngle, shininess);
+      // We add diffusive and specular components to the final color
+      // N.B. ): in this implementation, the sum of the components can be different than 1
+      color += vec3( Kd * lambertian * diffuseColor  +
+                      Ks * specular * specularColor );
+    }
+    
+    return color;
 }
 //////////////////////////////////////////
 
@@ -127,7 +158,27 @@ vec3 BlinnPhong() // this name is the one which is detected by the SetupShaders(
     
     // normalization of the per-fragment light incidence direction
     vec3 L = normalize(lightDir.xyz);
+    
+    // Compute curvature
+        vec3 dx = dFdx(N);
+        vec3 dy = dFdy(N);
+        vec3 xneg = N - dx;
+        vec3 xpos = N + dx;
+        vec3 yneg = N - dy;
+        vec3 ypos = N + dy;
+        float curvature = (cross(xneg, xpos).y - cross(yneg, ypos).x);
 
+      //curvature = 0.5 + 0.5 * curvature;
+      //curvature = clamp(curvature, -1, 1);
+      float e = 2.718;
+      float lambda = 0.5;
+      float alpha = 2;
+      float P = pow (lambda * abs(curvature), alpha);
+      float G1 = Ka / ( pow(e , P) * ( 1- Ka) + Ka);
+      float G2 = Kd / ( pow(e , P) * ( 1- Kd) + Kd);
+      float G3 = Ks / ( pow(e , P) * ( 1- Ks) + Ks);
+      color=ambientColor*G1;
+            
     // Lambert coefficient
     float lambertian = max(dot(L,N), 0.0);
 
@@ -144,22 +195,10 @@ vec3 BlinnPhong() // this name is the one which is detected by the SetupShaders(
       float specAngle = max(dot(H, N), 0.0);
       // shininess application to the specular component
       float specular = pow(specAngle, shininess);
-      
-
-        // Compute curvature
-        vec3 dx = dFdx(N);
-        vec3 dy = dFdy(N);
-        vec3 xneg = N - dx;
-        vec3 xpos = N + dx;
-        vec3 yneg = N - dy;
-        vec3 ypos = N + dy;
-        float depth = length(vertex);
-        float curvature = (cross(xneg, xpos).y - cross(yneg, ypos).x) * 4.0 / depth;
-    
       // We add diffusive and specular components to the final color
       // N.B. ): in this implementation, the sum of the components can be different than 1
-      color += vec3( Kd * lambertian * diffuseColor +
-                      Ks * specular * specularColor);
+      color += vec3( lambertian * diffuseColor * G2) +
+                      vec3( specular * specularColor * G3);
     }
     
     return color;
