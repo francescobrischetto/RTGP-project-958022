@@ -25,6 +25,7 @@ using namespace std;
 
 // we use GLM data structures to convert data in the Assimp data structures in a data structures suited for VBO, VAO and EBO buffers
 #include <glm/glm.hpp>
+#include <glm/gtx/normal.hpp>
 
 // Assimp includes
 #include <assimp/Importer.hpp>
@@ -144,6 +145,7 @@ private:
     {
         // data structures for vertices and indices of vertices (for faces)
         vector<Vertex> vertices;
+        vector<Vertex> vertices2;
         vector<GLuint> indices;
 
         for(GLuint i = 0; i < mesh->mNumVertices; i++)
@@ -162,6 +164,7 @@ private:
             vector.y = mesh->mNormals[i].y;
             vector.z = mesh->mNormals[i].z;
             vertex.Normal = vector;
+            vertex.Sm_Normal = vector;
             // Texture Coordinates
             // if the model has texture coordinates, than we assign them to a GLM data structure, otherwise we set them at 0
             // if texture coordinates are present, than Assimp can calculate tangents and bitangents, otherwise we set them at 0 too
@@ -198,6 +201,25 @@ private:
             aiFace face = mesh->mFaces[i];
             for(GLuint j = 0; j < face.mNumIndices; j++)
                 indices.push_back(face.mIndices[j]);
+        }
+
+        for (size_t i = 0; i < indices.size(); i += 3)
+        {
+            // compute face normal
+            glm::vec3 faceNormal = glm::triangleNormal(
+            vertices[indices[i]].Position,
+            vertices[indices[i+1]].Position,
+            vertices[indices[i+2]].Position);
+            // add face normal to each of the 3 vertex normal of the face
+            for (int j = 0; j < 3; ++j)
+            {
+                vertices[indices[i+j]].Sm_Normal += faceNormal;
+            }
+        }
+        for (auto &ver : vertices)
+        {
+            //Normalizing the vector
+            ver.Sm_Normal = glm::normalize(ver.Sm_Normal);
         }
 
         // we return an instance of the Mesh class created using the vertices and faces data structures we have created above.

@@ -121,15 +121,15 @@ GLboolean spinning = GL_TRUE;
 GLboolean wireframe = GL_FALSE;
 
 // we create a camera. We pass the initial position as a parameter to the constructor. The last boolean tells that we want a camera "anchored" to the ground
-Camera camera(glm::vec3(0.0f, 0.0f, 7.0f), GL_TRUE);
+Camera camera(glm::vec3(0.0f, 0.0f, 4.0f), GL_TRUE);
 
 // Uniforms to pass to shaders
 // position of a pointlight
-glm::vec3 lightPos0 = glm::vec3(5.0f, 10.0f, 10.0f);
+glm::vec3 lightPos0 = glm::vec3(0.0f, 2.5f, 4.0f);
 //GLfloat lightColor[] = {1.0f,1.0f,1.0f};
 
 // diffusive, specular and ambient components
-GLfloat diffuseColor[] = {1.0f,0.0f,0.0f};
+GLfloat diffuseColor[] = {0.5f,0.5f,0.5f};
 GLfloat specularColor[] = {1.0f,1.0f,1.0f};
 GLfloat ambientColor[] = {0.1f,0.1f,0.1f};
 // weights for the diffusive, specular and ambient components

@@ -19,6 +19,8 @@ Universita' degli Studi di Milano
 layout (location = 0) in vec3 position;
 // vertex normal in world coordinate
 layout (location = 1) in vec3 normal;
+// vertex smoothed normal in world coordinate
+layout (location = 2) in vec3 sm_normal;
 // the numbers used for the location in the layout qualifier are the positions of the vertex attribute
 // as defined in the Mesh class
 
@@ -41,7 +43,7 @@ out vec3 lightDir;
 // the transformed normal (in view coordinate) is set as an output variable, to be "passed" to the fragment shader
 // this means that the normal values in each vertex will be interpolated on each fragment created during rasterization between two vertices
 out vec3 vNormal;
-
+out vec3 vSMNormal;
 // in the subroutines in fragment shader where specular reflection is considered, 
 // we need to calculate also the reflection vector for each fragment
 // to do this, we need to calculate in the vertex shader the view direction (in view coordinates) for each vertex, and to have it interpolated for each fragment by the rasterization stage
@@ -58,8 +60,9 @@ void main(){
   vViewPosition = -mvPosition.xyz;
 
   // transformations are applied to the normal
+  //vNormal = normalize( normalMatrix * ( normal +  0.8 * (normal - sm_normal)) );
   vNormal = normalize( normalMatrix * normal );
-
+  vSMNormal = normalize( normalMatrix * sm_normal );
   // light incidence direction (in view coordinate)
   vec4 lightPos = viewMatrix  * vec4(pointLightPosition, 1.0);
   lightDir = lightPos.xyz - mvPosition.xyz;
