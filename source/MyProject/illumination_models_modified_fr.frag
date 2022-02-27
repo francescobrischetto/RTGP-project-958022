@@ -199,6 +199,56 @@ float G1(float angle, float alpha)
     return num / denom;
 }
 
+//TODO: Add comments BUT IT WORKS
+subroutine(ill_model)
+vec3 ToonShader(){
+	float intensity;
+	vec3 color;
+  vec3 L = normalize(lightDir.xyz);
+  vec3 N = normalize(vNormal);
+	intensity = dot(L,N);
+
+	if (intensity > 0.95)
+		color = vec3(1.0,0.5,0.5);
+	else if (intensity > 0.5)
+		color = vec3(0.6,0.3,0.3);
+	else if (intensity > 0.25)
+		color = vec3(0.4,0.2,0.2);
+	else
+		color = vec3(0.2,0.1,0.1);
+	return color;
+
+}
+
+//TODO: Add comments BUT IT WORKS
+subroutine(ill_model)
+vec3 EnhancedToonShader(){
+	float intensity;
+	vec3 color;
+  vec3 L = normalize(lightDir.xyz);
+    //TODO: Add comments and fix variable names
+  vec3 mask = vNormal - vSMNormal;
+  vec3 unsharp_Normal = vNormal + 2*mask;
+  // normalization of the per-fragment normal
+  vec3 N = normalize(unsharp_Normal);
+	intensity = dot(L,N);
+
+  float r = 0.3f;
+  float Ql = 4;
+  intensity = floor(0.5 + (Ql * pow(intensity,r))) / Ql;
+
+	if (intensity > 0.95)
+		color = vec3(1.0,0.5,0.5);
+	else if (intensity > 0.5)
+		color = vec3(0.6,0.3,0.3);
+	else if (intensity > 0.25)
+		color = vec3(0.4,0.2,0.2);
+	else
+		color = vec3(0.2,0.1,0.1);
+	return color;
+
+}
+
 //////////////////////////////////////////
 // a subroutine for the GGX model
 //subroutine(ill_model)
