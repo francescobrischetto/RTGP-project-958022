@@ -1,6 +1,7 @@
 /*
-Es03a: Shaders for Lambert, Phong, Blinn-Phong and GGX illumination models
-- swapping between different illumination model shaders pressing keys from 1 to 4
+Project of Francesco Brischetto: This project is based based on "Geometry-based shading for shape depiction enhancement".
+                                 It applies an NPR effect to the illumination model that enhances object shape 
+                                 based on object local geometry
 
 N.B. 1)
 In this example we use Shaders Subroutines to do shader swapping:
@@ -20,6 +21,7 @@ N.B. 3) no texturing in this version of the classes
 N.B. 4) to test different parameters of the shaders, it is convenient to use some GUI library, like e.g. Dear ImGui (https://github.com/ocornut/imgui)
 
 author: Davide Gadia
+refined by: Francesco Brischetto mat. 958022
 
 Real-Time Graphics Programming - a.a. 2020/2021
 Master degree in Computer Science
@@ -68,7 +70,7 @@ positive Z axis points "outside" the screen
 
 // classes developed during lab lectures to manage shaders and to load models
 #include <utils/shader_v1.h>
-#include <utils/model_v1.h>
+#include <utils/model_modified.h>
 #include <utils/camera.h>
 
 // we load the GLM classes used in the application
@@ -87,7 +89,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void apply_camera_movements();
 
 // index of the current shader subroutine (= 0 in the beginning)
-GLuint current_subroutine = 1;
+GLuint current_subroutine = 0;
 // a vector for all the shader subroutines names used and swapped in the application
 vector<std::string> shaders;
 
@@ -121,21 +123,23 @@ GLboolean spinning = GL_TRUE;
 GLboolean wireframe = GL_FALSE;
 
 // we create a camera. We pass the initial position as a parameter to the constructor. The last boolean tells that we want a camera "anchored" to the ground
-Camera camera(glm::vec3(0.0f, 0.0f, 4.0f), GL_TRUE);
+Camera camera(glm::vec3(0.0f, 1.0f, 9.0f), GL_TRUE);
 
 // Uniforms to pass to shaders
 // position of a pointlight
-glm::vec3 lightPos0 = glm::vec3(0.0f, 2.5f, 4.0f);
+glm::vec3 lightPos0 = glm::vec3(5.0f, 10.0f, 10.0f);
 //GLfloat lightColor[] = {1.0f,1.0f,1.0f};
 
 // diffusive, specular and ambient components
-GLfloat diffuseColor[] = {0.5f,0.5f,0.5f};
-GLfloat specularColor[] = {1.0f,1.0f,1.0f};
-GLfloat ambientColor[] = {0.1f,0.1f,0.1f};
+GLfloat diffuseColor[] = {1.0f,0.8f,0.2f};
+GLfloat specularColor[] = {1.0f,1.0f,0.1f};
+GLfloat ambientColor[] = {0.8f,0.9f,1.0f};
 // weights for the diffusive, specular and ambient components
-GLfloat Kd = 0.5f;
-GLfloat Ks = 0.4f;
+GLfloat Kd = 0.6f;
+GLfloat Ks = 0.3f;
 GLfloat Ka = 0.1f;
+
+//TODO: modify it
 // shininess coefficient for Phong and Blinn-Phong shaders
 GLfloat shininess = 25.0f;
 
@@ -145,7 +149,7 @@ GLfloat alpha = 0.2f;
 GLfloat F0 = 0.9f;
 
 // color to be passed as uniform to the shader of the plane
-GLfloat planeMaterial[] = {0.0f,0.5f,0.0f};
+GLfloat planeMaterial[] = {0.1f,1.0f,0.1f};
 
 
 /////////////////// MAIN function ///////////////////////
@@ -201,7 +205,7 @@ int main()
     glClearColor(0.26f, 0.46f, 0.98f, 1.0f);
 
     // we create the Shader Program used for objects (which presents different subroutines we can switch)
-    Shader illumination_shader = Shader("09_illumination_models.vert", "10_illumination_models.frag");
+    Shader illumination_shader = Shader("illumination_models_modified_vt.vert", "illumination_models_modified_fr.frag");
     // we parse the Shader Program to search for the number and names of the subroutines.
     // the names are placed in the shaders vector
     SetupShader(illumination_shader.Program);
@@ -210,6 +214,8 @@ int main()
 
     // we load the model(s) (code of Model class is in include/utils/model_v1.h)
     Model armadilloModel("../../models/armadillo.obj");
+    Model bunnyModel("../../models/stanford-bunny.obj");
+    Model dragonModel("../../models/stanford-dragon.obj");
     Model planeModel("../../models/plane.obj");
 
     // Projection matrix: FOV angle, aspect ratio, near and far planes
@@ -220,6 +226,10 @@ int main()
     // Model and Normal transformation matrices for the objects in the scene: we set to identity
     glm::mat4 armadilloModelMatrix = glm::mat4(1.0f);
     glm::mat3 armadilloNormalMatrix = glm::mat3(1.0f);
+    glm::mat4 dragonModelMatrix = glm::mat4(1.0f);
+    glm::mat3 dragonNormalMatrix = glm::mat3(1.0f);
+    glm::mat4 bunnyModelMatrix = glm::mat4(1.0f);
+    glm::mat3 bunnyNormalMatrix = glm::mat3(1.0f);
     glm::mat4 planeModelMatrix = glm::mat4(1.0f);
     glm::mat3 planeNormalMatrix = glm::mat3(1.0f);
 
@@ -280,7 +290,7 @@ int main()
         // we reset to identity at each frame
         planeModelMatrix = glm::mat4(1.0f);
         planeNormalMatrix = glm::mat3(1.0f);
-        planeModelMatrix = glm::translate(planeModelMatrix, glm::vec3(0.0f, -1.0f, 0.0f));
+        planeModelMatrix = glm::translate(planeModelMatrix, glm::vec3(0.0f, 0.0f, 0.0f));
         planeModelMatrix = glm::scale(planeModelMatrix, glm::vec3(10.0f, 1.0f, 10.0f));
         planeNormalMatrix = glm::inverseTranspose(glm::mat3(view*planeModelMatrix));
         glUniformMatrix4fv(glGetUniformLocation(illumination_shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(planeModelMatrix));
@@ -301,6 +311,7 @@ int main()
         GLint matSpecularLocation = glGetUniformLocation(illumination_shader.Program, "specularColor");
         GLint kaLocation = glGetUniformLocation(illumination_shader.Program, "Ka");
         GLint ksLocation = glGetUniformLocation(illumination_shader.Program, "Ks");
+        //TODO: Modify it
         GLint shineLocation = glGetUniformLocation(illumination_shader.Program, "shininess");
         GLint alphaLocation = glGetUniformLocation(illumination_shader.Program, "alpha");
         GLint f0Location = glGetUniformLocation(illumination_shader.Program, "F0");
@@ -311,6 +322,7 @@ int main()
         glUniform3fv(matSpecularLocation, 1, specularColor);
         glUniform1f(kaLocation, Ka);
         glUniform1f(ksLocation, Ks);
+        //TODO: Modify it
         glUniform1f(shineLocation, shininess);
         glUniform1f(alphaLocation, alpha);
         glUniform1f(f0Location, F0);
@@ -320,15 +332,45 @@ int main()
         // we reset to identity at each frame
         armadilloModelMatrix = glm::mat4(1.0f);
         armadilloNormalMatrix = glm::mat3(1.0f);
-        armadilloModelMatrix = glm::translate(armadilloModelMatrix, glm::vec3(0.0f, 0.0f, 0.0f));
+        armadilloModelMatrix = glm::translate(armadilloModelMatrix, glm::vec3(0.0f, 1.0f, 0.0f));
         armadilloModelMatrix = glm::rotate(armadilloModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
         armadilloModelMatrix = glm::scale(armadilloModelMatrix, glm::vec3(1.0f, 1.0f, 1.0f));
         armadilloNormalMatrix = glm::inverseTranspose(glm::mat3(view*armadilloModelMatrix));
         glUniformMatrix4fv(glGetUniformLocation(illumination_shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(armadilloModelMatrix));
         glUniformMatrix3fv(glGetUniformLocation(illumination_shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(armadilloNormalMatrix));
 
-        // we render the bunny
+        // we render the armadillo
         armadilloModel.Draw();
+
+        //BUNNY
+        // we create the transformation matrix and the normals transformation matrix
+        // we reset to identity at each frame
+        bunnyModelMatrix = glm::mat4(1.0f);
+        bunnyNormalMatrix = glm::mat3(1.0f);
+        bunnyModelMatrix = glm::translate(bunnyModelMatrix, glm::vec3(-4.0f, 1.5f, 0.0f));
+        bunnyModelMatrix = glm::rotate(bunnyModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+        bunnyModelMatrix = glm::scale(bunnyModelMatrix, glm::vec3(0.006f, 0.006f, 0.006f));
+        bunnyNormalMatrix = glm::inverseTranspose(glm::mat3(view*bunnyModelMatrix));
+        glUniformMatrix4fv(glGetUniformLocation(illumination_shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(bunnyModelMatrix));
+        glUniformMatrix3fv(glGetUniformLocation(illumination_shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(bunnyNormalMatrix));
+
+        // we render the bunny
+        bunnyModel.Draw();
+
+        //DRAGON
+        // we create the transformation matrix and the normals transformation matrix
+        // we reset to identity at each frame
+        dragonModelMatrix = glm::mat4(1.0f);
+        dragonNormalMatrix = glm::mat3(1.0f);
+        dragonModelMatrix = glm::translate(dragonModelMatrix, glm::vec3(4.0f, 0.0f, 0.0f));
+        dragonModelMatrix = glm::rotate(dragonModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+        dragonModelMatrix = glm::scale(dragonModelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
+        dragonNormalMatrix = glm::inverseTranspose(glm::mat3(view*dragonModelMatrix));
+        glUniformMatrix4fv(glGetUniformLocation(illumination_shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(dragonModelMatrix));
+        glUniformMatrix3fv(glGetUniformLocation(illumination_shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(dragonNormalMatrix));
+
+        // we render the dragon
+        dragonModel.Draw();
 
         // Swapping back and front buffers
         glfwSwapBuffers(window);

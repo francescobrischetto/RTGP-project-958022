@@ -5,7 +5,7 @@
 #Universita' degli Studi di Milano
 
 #name of the file
-FILENAME = lecture03a
+FILENAME = MyProject
 
 # Xcode compiler
 CXX = clang++
