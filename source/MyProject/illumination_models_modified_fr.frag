@@ -50,8 +50,14 @@ uniform float shininess;
 
 // uniforms used as control parameters for all the functions defined in the reference paper
 uniform float alpha;
+const float r = 1.2f;
+const float Ql = 4;
 
-
+// uniforms for Toon Shading Model
+const vec3 shinestColor = vec3(1.0,0.8,0.4);
+const vec3 shinyColor   = vec3(0.6,0.5,0.2);
+const vec3 darkColor    = vec3(0.4,0.4,0.1);
+const vec3 gloomyColor  = vec3(0.2,0.1,0.1);
 
 //TODO: Fix This
 // uniforms for GGX model
@@ -144,7 +150,7 @@ vec3 BlinnPhong() // this name is the one which is detected by the SetupShaders(
 //////////////////////////////////////////
 
 //////////////////////////////////////////
-// a subroutine for the Enhanced-Blinn-Phong model using Shape Depiction Enhancement based on local Geometry 
+// a subroutine for the Enhanced Blinn-Phong model using Shape Depiction Enhancement based on local Geometry 
 subroutine(ill_model)
 vec3 EnhancedBlinnPhong()
 {
@@ -196,53 +202,43 @@ vec3 EnhancedBlinnPhong()
 // a subroutine for the Cartoon/Cel Shading model
 subroutine(ill_model)
 vec3 ToonShading(){
-	float intensity;
-	vec3 color;
   // normalization of the per-fragment light incidence direction
   vec3 L = normalize(lightDir.xyz);
   // normalization of the per-fragment normal
   vec3 N = normalize(vNormal);
-	intensity = dot(L,N);
-
-	if (intensity > 0.95)
-		color = vec3(1.0,0.8,0.4);
-	else if (intensity > 0.5)
-		color = vec3(0.6,0.5,0.2);
-	else if (intensity > 0.25)
-		color = vec3(0.4,0.4,0.1);
-	else
-		color = vec3(0.2,0.1,0.1);
-	return color;
-
+  // Intensity parameter used in standard toon/cel shading
+	float intensity = dot(L,N);
+  // Color choice based on intensity parameter
+	if (intensity > 0.95)       return shinestColor;
+	else if (intensity > 0.5)   return shinyColor;
+	else if (intensity > 0.25)  return darkColor;
+	else                        return gloomyColor;
 }
+//////////////////////////////////////////
 
-//TODO: Add comments BUT IT WORKS
+//////////////////////////////////////////
+// a subroutine for the Enhanced Cartoon/Cel Shading model using Shape Depiction Enhancement based on local Geometry 
 subroutine(ill_model)
-vec3 EnhancedToonShader(){
-	float intensity;
-	vec3 color;
+vec3 EnhancedToonShading(){
+  // normalization of the per-fragment light incidence direction
   vec3 L = normalize(lightDir.xyz);
-    //TODO: Add comments and fix variable names
+  // Computing the mask for Unsharp Masking
   vec3 mask = vNormal - vSMNormal;
-  vec3 unsharp_Normal = vNormal + lambda*mask;
+  // calculating enhanced Normal using the Unsharp Masking technique
+  // This is defined, in the reference paper, in equation 6 of chapter 4.2.2
+  vec3 eNormal = vNormal + lambda * mask;
   // normalization of the per-fragment normal
-  vec3 N = normalize(unsharp_Normal);
-	intensity = dot(L,N);
-
-  float r = 1.2f;
-  float Ql = 4;
+  vec3 N_I = normalize(eNormal);
+  // Intensity parameter used in standard toon/cel shading, but using our enhanced normal
+	float intensity = dot(L,N_I);
+  // Equation 13 of the Chapter 6.2 of the reference paper
+  // TODO: Need refinement, we need to do it also for specular and ambient
   intensity = floor(0.5 + (Ql * pow(intensity,r))) / Ql;
-
-	if (intensity > 0.95)
-		color = vec3(1.0,0.8,0.4);
-	else if (intensity > 0.5)
-		color = vec3(0.6,0.5,0.2);
-	else if (intensity > 0.25)
-		color = vec3(0.4,0.4,0.1);
-	else
-		color = vec3(0.2,0.1,0.1);
-	return color;
-
+  // Color choice based on intensity parameter
+	if (intensity > 0.95)       return shinestColor;
+	else if (intensity > 0.5)   return shinyColor;
+	else if (intensity > 0.25)  return darkColor;
+	else                        return gloomyColor;
 }
 
 //TODO: Add comments BUT IT WORKS
