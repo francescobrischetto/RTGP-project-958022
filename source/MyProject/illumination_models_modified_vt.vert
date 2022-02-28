@@ -3,7 +3,7 @@ Project of Francesco Brischetto: This project is based based on "Geometry-based 
                                  It applies an NPR effect to the illumination model that enhances object shape 
                                  based on object local geometry
                                  
-illumination_models_modified_vt.vert: Vertex shader for the Lambert, Blinn-Phong and TBD illumination models
+illumination_models_modified_vt.vert: Vertex shader for the Lambert, Blinn-Phong, Gooch and Cartoon illumination models
 It also passes smoothed surface normal, computed in model loading phase, that will be used to calculate the sharpened surface  
 
 N. B.) the shader treats a simplified situation, with a single point light.

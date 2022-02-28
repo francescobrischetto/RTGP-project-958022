@@ -224,7 +224,9 @@ private:
         }
         for (auto &v : vertices)
         {
-            //Normalizing the vectors accumulating face normals to obtain the smoothed surface normal
+            // Normalizing the vectors accumulating face normals to obtain the smoothed surface normal
+            // NOTE: Sigma parameter, found in Equation 5 of 4.2.1 chapter of the reference paper 
+            // ( to control the quantity of convolution kernel used ) is implicitely 1.
             v.Sm_Normal = glm::normalize(v.Sm_Normal);
         }
 

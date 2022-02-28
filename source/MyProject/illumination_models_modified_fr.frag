@@ -3,7 +3,7 @@ Project of Francesco Brischetto: This project is based based on "Geometry-based 
                                  It applies an NPR effect to the illumination model that enhances object shape 
                                  based on object local geometry
 
-illumination_models_modified_fr.frag: Fragment shader for the Lambert, Blinn-Phong and TBD illumination models
+illumination_models_modified_fr.frag: Fragment shader for the Lambert, Blinn-Phong, Gooch and Cartoon illumination models
 It receives smoothed surface normal, computed in model loading phase, that will be used to calculate the sharpened surface
 
 N.B. 1)  "illumination_models_modified_vt.vert" must be used as vertex shader
@@ -21,7 +21,7 @@ Universita' degli Studi di Milano
 
 #version 410 core
 
-const float PI = 3.14159265359;
+const float lambda = 1.1;
 
 // output shader variable
 out vec4 colorFrag;
@@ -35,6 +35,7 @@ in vec3 vSMNormal;
 // vector from fragment to camera (in view coordinate)
 in vec3 vViewPosition;
 
+// uniforms for Blinn-Phong model
 // ambient, diffusive and specular components (passed from the application)
 uniform vec3 ambientColor;
 uniform vec3 diffuseColor;
@@ -44,26 +45,56 @@ uniform vec3 specularColor;
 uniform float Ka;
 uniform float Kd;
 uniform float Ks;
-
-//TODO: Fix This
 // shininess coefficients (passed from the application)
 uniform float shininess;
 
+// uniforms used as control parameters for all the functions defined in the reference paper
+uniform float alpha;
+
+
+
+//TODO: Fix This
 // uniforms for GGX model
-uniform float alpha; // rugosity - 0 : smooth, 1: rough
+ // rugosity - 0 : smooth, 1: rough
 uniform float F0; // fresnel reflectance at normal incidence
 
 ////////////////////////////////////////////////////////////////////
 
 // the "type" of the Subroutine
 subroutine vec3 ill_model();
-
 // Subroutine Uniform (it is conceptually similar to a C pointer function)
 subroutine uniform ill_model Illumination_Model;
 
 ////////////////////////////////////////////////////////////////////
 
+///////////////////HELPING FUNCTIONS///////////////////////
+// My proposed method for calculating curvature (used by Enhanced Blinn-Phong model)
+// Based on: https://madebyevan.com/shaders/curvature/
+float curvature(vec3 N_I)
+{
+  // We compute curvature exploiting partial derivatives of the Enhanced Surface Normal
+  vec3 dx = dFdx(N_I);
+  vec3 dy = dFdy(N_I);
+  float curvature_value = (cross(N_I - dx, N_I + dx).y - cross(N_I - dy, N_I + dy).x);
+  return clamp(curvature_value, -1, 1);
+}
+
 //////////////////////////////////////////
+// Curvature-Based Reflectance Scaling Function (used by Enhanced Blinn-Phong model)
+// Defined in the reference paper in chapter 5.1
+float Lr(float curvature_value, float delta)
+{
+  // We apply the curvature mapping function that uses lambda and alpha parameters to apply non-linear mapping
+  float P = pow (lambda * abs(curvature_value), alpha);
+  // Uses as intensity mapping function the second parameter, delta
+  // This function maps intensity mapping and curvature mapping functions in the reflectance radiance equation
+  // This aims to correlate the reflected lightning intensity to surface curvature
+  float G = delta / ( exp(P) * ( 1 - delta ) + delta );
+  return G;
+}
+//////////////////////////////////////////
+
+///////////////////ILLUMINATION MODELS///////////////////////
 // a subroutine for the Lambert model
 subroutine(ill_model)
 vec3 Lambert() // this name is the one which is detected by the SetupShaders() function in the main application, and the one used to swap subroutines
@@ -72,10 +103,8 @@ vec3 Lambert() // this name is the one which is detected by the SetupShaders() f
     vec3 N = normalize(vNormal);
     // normalization of the per-fragment light incidence direction
     vec3 L = normalize(lightDir.xyz);
-
     // Lambert coefficient
     float lambertian = max(dot(L,N), 0.0);
-
     // Lambert illumination model  
     return vec3(Kd * lambertian * diffuseColor);
 }
@@ -88,132 +117,99 @@ vec3 BlinnPhong() // this name is the one which is detected by the SetupShaders(
 {
     // ambient component can be calculated at the beginning
     vec3 color = Ka*ambientColor;
-
     // normalization of the per-fragment normal
     vec3 N = normalize(vNormal);
-
     // normalization of the per-fragment light incidence direction
     vec3 L = normalize(lightDir.xyz);
-
     // Lambert coefficient
     float lambertian = max(dot(L,N), 0.0);
-
     // if the lambert coefficient is positive, then I can calculate the specular component
     if(lambertian > 0.0)
     {
       // the view vector has been calculated in the vertex shader, already negated to have direction from the mesh to the camera
       vec3 V = normalize( vViewPosition );
-
       // in the Blinn-Phong model we do not use the reflection vector, but the half vector
       vec3 H = normalize(L + V);
-
       // we use H to calculate the specular component
       float specAngle = max(dot(H, N), 0.0);
       // shininess application to the specular component
       float specular = pow(specAngle, shininess);
-
       // We add diffusive and specular components to the final color
       // N.B. ): in this implementation, the sum of the components can be different than 1
       color += vec3( Kd * lambertian * diffuseColor +
-                      Ks * specular * specularColor);
+                     Ks * specular * specularColor);
     }
     return color;
 }
 //////////////////////////////////////////
 
 //////////////////////////////////////////
-// a subroutine for the Enhanced-Blinn-Phong model
+// a subroutine for the Enhanced-Blinn-Phong model using Shape Depiction Enhancement based on local Geometry 
 subroutine(ill_model)
-vec3 EnhancedBlinnPhong() // this name is the one which is detected by the SetupShaders() function in the main application, and the one used to swap subroutines
+vec3 EnhancedBlinnPhong()
 {
-  // ambient component can be calculated at the beginning
-  vec3 color = Ka*ambientColor;
-
-  //TODO: Add comments and fix variable names
+  // Computing the mask for Unsharp Masking
   vec3 mask = vNormal - vSMNormal;
-  vec3 unsharp_Normal = vNormal + 2*mask;
+  // calculating enhanced Normal using the Unsharp Masking technique
+  // This is defined, in the reference paper, in equation 6 of chapter 4.2.2
+  vec3 eNormal = vNormal + lambda * mask;
   // normalization of the per-fragment normal
-  vec3 N = normalize(unsharp_Normal);
-
+  vec3 N_I = normalize(eNormal);
+  // calculating curvature value using enhanced normal
+  float curvature_value = curvature(N_I);
+  // Implementing equation 12 of chapter 6.1 of the reference paper
+  // I calculate the Curvature-Based Reflectance Scaling factor for each of the Blinn-Phong components
+  // NOTE: Reference paper use the costant 1 as rho_a component for ambient
+  float G_a = Lr(curvature_value, 1);  
+  // ambient component can be calculated at this point
+  vec3 color = Ka * G_a * ambientColor;
   // normalization of the per-fragment light incidence direction
   vec3 L = normalize(lightDir.xyz);
-
-  //TODO: Add comments and fix variable names
-  // Compute curvature
-  vec3 dx = dFdx(N);
-  vec3 dy = dFdy(N);
-  vec3 xneg = N - dx;
-  vec3 xpos = N + dx;
-  vec3 yneg = N - dy;
-  vec3 ypos = N + dy;
-  float curvature = (cross(xneg, xpos).y - cross(yneg, ypos).x);
-
-  curvature = clamp(curvature, -1, 1);
-  float e = 2.718;
-  float lambda = 0.7;
-  float alpha = 2;
-  //This calculation can be done in a separate function
-  float P = pow (lambda * abs(curvature), alpha);
-  float G1 = Ka / ( pow(e , P) * ( 1- Ka) + Ka);
-  float G2 = Kd / ( pow(e , P) * ( 1- Kd) + Kd);
-  float G3 = Ks / ( pow(e , P) * ( 1- Ks) + Ks);
-  color=ambientColor*G1;
-          
   // Lambert coefficient
-  float lambertian = max(dot(L,N), 0.0);
-
+  float lambertian = max(dot(L,N_I), 0.0);
   // if the lambert coefficient is positive, then I can calculate the specular component
   if(lambertian > 0.0)
   {
+    // This is the Curvature-Based Reflectance Scaling factor for the diffuse component
+    // NOTE: Reference paper use the lambertian coefficient as rho_d for diffuse
+    float G_d = Lr(curvature_value, lambertian); 
     // the view vector has been calculated in the vertex shader, already negated to have direction from the mesh to the camera
     vec3 V = normalize( vViewPosition );
-
     // in the Blinn-Phong model we do not use the reflection vector, but the half vector
     vec3 H = normalize(L + V);
-
     // we use H to calculate the specular component
-    float specAngle = max(dot(H, N), 0.0);
+    float specAngle = max(dot(H, N_I), 0.0);
     // shininess application to the specular component
     float specular = pow(specAngle, shininess);
-    // We add diffusive and specular components to the final color
-    // N.B. ): in this implementation, the sum of the components can be different than 1
-    color = color + vec3( lambertian * diffuseColor * G2) +
-                    vec3( specular * specularColor * G3);
+    // This is the Curvature-Based Reflectance Scaling factor for the specular component
+    // NOTE: Reference paper use the lambertian coefficient as rho_s for specular
+    float G_s = Lr(curvature_value, specular);
+    // We add diffusive and specular components to the final color using our Curvature-Based factors
+    color += vec3( Kd * G_d * diffuseColor +
+                   Ks * G_s * specularColor);
   }
   return color;
 }
 //////////////////////////////////////////
 
 //////////////////////////////////////////
-// Schlick-GGX method for geometry obstruction (used by GGX model)
-float G1(float angle, float alpha)
-{
-    // in case of Image Based Lighting, the k factor is different:
-    // usually it is set as k=(alpha*alpha)/2
-    float r = (alpha + 1.0);
-    float k = (r*r) / 8.0;
-
-    float num   = angle;
-    float denom = angle * (1.0 - k) + k;
-
-    return num / denom;
-}
-
-//TODO: Add comments BUT IT WORKS
+// a subroutine for the Cartoon/Cel Shading model
 subroutine(ill_model)
-vec3 ToonShader(){
+vec3 ToonShading(){
 	float intensity;
 	vec3 color;
+  // normalization of the per-fragment light incidence direction
   vec3 L = normalize(lightDir.xyz);
+  // normalization of the per-fragment normal
   vec3 N = normalize(vNormal);
 	intensity = dot(L,N);
 
 	if (intensity > 0.95)
-		color = vec3(1.0,0.5,0.5);
+		color = vec3(1.0,0.8,0.4);
 	else if (intensity > 0.5)
-		color = vec3(0.6,0.3,0.3);
+		color = vec3(0.6,0.5,0.2);
 	else if (intensity > 0.25)
-		color = vec3(0.4,0.2,0.2);
+		color = vec3(0.4,0.4,0.1);
 	else
 		color = vec3(0.2,0.1,0.1);
 	return color;
@@ -228,89 +224,100 @@ vec3 EnhancedToonShader(){
   vec3 L = normalize(lightDir.xyz);
     //TODO: Add comments and fix variable names
   vec3 mask = vNormal - vSMNormal;
-  vec3 unsharp_Normal = vNormal + 2*mask;
+  vec3 unsharp_Normal = vNormal + lambda*mask;
   // normalization of the per-fragment normal
   vec3 N = normalize(unsharp_Normal);
 	intensity = dot(L,N);
 
-  float r = 0.3f;
+  float r = 1.2f;
   float Ql = 4;
   intensity = floor(0.5 + (Ql * pow(intensity,r))) / Ql;
 
 	if (intensity > 0.95)
-		color = vec3(1.0,0.5,0.5);
+		color = vec3(1.0,0.8,0.4);
 	else if (intensity > 0.5)
-		color = vec3(0.6,0.3,0.3);
+		color = vec3(0.6,0.5,0.2);
 	else if (intensity > 0.25)
-		color = vec3(0.4,0.2,0.2);
+		color = vec3(0.4,0.4,0.1);
 	else
 		color = vec3(0.2,0.1,0.1);
 	return color;
 
 }
 
-//////////////////////////////////////////
-// a subroutine for the GGX model
-//subroutine(ill_model)
-vec3 GGX() // this name is the one which is detected by the SetupShaders() function in the main application, and the one used to swap subroutines
-{
-    // normalization of the per-fragment normal
-    vec3 N = normalize(vNormal);
-    // normalization of the per-fragment light incidence direction
-    vec3 L = normalize(lightDir.xyz);
+//TODO: Add comments BUT IT WORKS
+subroutine(ill_model)
+vec3 EnhancedGoochShading(){
+  vec3  SurfaceColor = vec3(0.65, 0.65, 0.65);
+  vec3  WarmColor = vec3(0.3, 0.3, 0);
+  vec3  CoolColor = vec3(0, 0, 0.55);
+  vec3  SurfaceColorA = vec3(0.65, 0.65, 0.65);
+  vec3  WarmColorA = vec3(0.3, 0.3, 0);
+  vec3  CoolColorA = vec3(0, 0, 0.55);
+  vec3  SurfaceColorS = vec3(1, 1, 1);
+  vec3  WarmColorS = vec3(0.8, 0.8, 0);
+  vec3  CoolColorS = vec3(0.2, 0.2, 0);
+  float DiffuseWarm = 0.5;
+  float DiffuseCool = 0.25;
+  vec3 L = normalize(lightDir.xyz);
+  
+  vec3 mask = vNormal - vSMNormal;
+  vec3 unsharp_Normal = vNormal + lambda*mask;
+  vec3 N = normalize(unsharp_Normal);
 
-    // cosine angle between direction of light and normal
-    float NdotL = max(dot(N, L), 0.0);
+  float roA = 1;
+  roA = (1 + roA) * 0.5;
+  float roD = dot(N,L);
+  roD = (1 + roD) * 0.5;
+  vec3 V = normalize( vViewPosition );
+  vec3 refLN = normalize(reflect(-L, N));
+  float ER    = clamp(dot(refLN, V), 0, 1);
+  float roS = pow(ER, shininess);
+  //roS = (1 + roS) * 0.5;
 
-    // diffusive (Lambert) reflection component
-    vec3 lambert = (Kd*diffuseColor)/PI;
 
-    // we initialize the specular component
-    vec3 specular = vec3(0.0);
 
-    // if the cosine of the angle between direction of light and normal is positive, then I can calculate the specular component
-    if(NdotL > 0.0)
-    {
-        // the view vector has been calculated in the vertex shader, already negated to have direction from the mesh to the camera
-        vec3 V = normalize( vViewPosition );
+  /*vec3 refLN = normalize(reflect(-L, N));
+  float NdotL = (dot(L, N) + 1.0) * 0.5;
+  
+ 
+  vec3 kfinal   = mix(kcool, kwarm, NdotL);
+  float ER    = clamp(dot(refLN, V), 0, 1);
+  vec3 spec   = vec3(1) * pow(ER, 64.0);*/
 
-        // half vector
-        vec3 H = normalize(L + V);
-
-        // we implement the components seen in the slides for a PBR BRDF
-        // we calculate the cosines and parameters to be used in the different components
-        float NdotH = max(dot(N, H), 0.0);
-        float NdotV = max(dot(N, V), 0.0);
-        float VdotH = max(dot(V, H), 0.0);
-        float alpha_Squared = alpha * alpha;
-        float NdotH_Squared = NdotH * NdotH;
-
-        // Geometric factor G2 
-        // Smith’s method (uses Schlick-GGX method for both geometry obstruction and shadowing )
-        float G2 = G1(NdotV, alpha)*G1(NdotL, alpha);
-
-        // Rugosity D
-        // GGX Distribution
-        float D = alpha_Squared;
-        float denom = (NdotH_Squared*(alpha_Squared-1.0)+1.0);
-        D /= PI*denom*denom;
-
-        // Fresnel reflectance F (approx Schlick)
-        vec3 F = vec3(pow(1.0 - VdotH, 5.0));
-        F *= (1.0 - F0);
-        F += F0;
-
-        // we put everything together for the specular component
-        specular = (F * G2 * D) / (4.0 * NdotV * NdotL);
-    }
-
-    // the rendering equation is:
-    // integral of: BRDF * Li * (cosine angle between N and L)
-    // BRDF in our case is: the sum of Lambert and GGX
-    // Li is considered as equal to 1: light is white, and we have not applied attenuation. With colored lights, and with attenuation, the code must be modified and the Li factor must be multiplied to finalColor
-    return (lambert + specular)*NdotL;
+  vec3 kcoolD    = min(CoolColor + DiffuseCool * SurfaceColor, 1.0);
+  vec3 kwarmD    = min(WarmColor + DiffuseWarm * SurfaceColor, 1.0);
+  vec3 kcoolA    = min(CoolColor + DiffuseCool * SurfaceColor, 1.0);
+  vec3 kwarmA    = min(WarmColor + DiffuseWarm * SurfaceColor, 1.0); 
+  vec3 kcoolS    = min(CoolColor + DiffuseCool * SurfaceColor, 1.0);
+  vec3 kwarmS    = min(WarmColor + DiffuseWarm * SurfaceColor, 1.0);  
+  vec3 kfinalA = mix(kcoolA,kwarmA, roA);
+  vec3 kfinalD = mix(kcoolD,kwarmD, roD);
+  //vec3 kfinalS = mix(kcoolS,kwarmS, roS);
+  vec3 kfinalS = vec3(1) * roS;
+  return  0.2*kfinalA + 0.8*kfinalD + kfinalS;
 }
-//////////////////////////////////////////
+
+//TODO: Add comments BUT IT WORKS
+subroutine(ill_model)
+vec3 GoochShading(){
+  vec3  SurfaceColor = vec3(0.65, 0.65, 0.65);
+  vec3  WarmColor = vec3(0.3, 0.3, 0);
+  vec3  CoolColor = vec3(0, 0, 0.55);
+  float DiffuseWarm = 0.5;
+  float DiffuseCool = 0.25;
+  vec3 L = normalize(lightDir.xyz);
+  vec3 N = normalize(vNormal);
+  vec3 refLN = normalize(reflect(-L, N));
+  float NdotL = (dot(L, N) + 1.0) * 0.5;
+  vec3 V = normalize( vViewPosition );
+  vec3 kcool    = min(CoolColor + DiffuseCool * SurfaceColor, 1.0);
+  vec3 kwarm    = min(WarmColor + DiffuseWarm * SurfaceColor, 1.0); 
+  vec3 kfinal   = mix(kcool, kwarm, NdotL);
+  float ER    = clamp(dot(refLN, V), 0, 1);
+  vec3 spec   = vec3(1) * pow(ER, shininess);
+  return vec3(kfinal + spec);
+}
 
 // main
 void main(void)
@@ -318,6 +325,5 @@ void main(void)
     // we call the pointer function Illumination_Model():
     // the subroutine selected in the main application will be called and executed
   	vec3 color = Illumination_Model(); 
-  
     colorFrag = vec4(color, 1.0);
 }

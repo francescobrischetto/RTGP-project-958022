@@ -141,10 +141,10 @@ GLfloat Ka = 0.1f;
 
 //TODO: modify it
 // shininess coefficient for Phong and Blinn-Phong shaders
-GLfloat shininess = 25.0f;
+GLfloat shininess = 32.0f;
 
-// roughness index for GGX shader
-GLfloat alpha = 0.2f;
+// uniforms used as control parameters for all the functions defined in the reference paper
+GLfloat alpha = 2.0f;
 // Fresnel reflectance at 0 degree (Schlik's approximation)
 GLfloat F0 = 0.9f;
 
@@ -422,7 +422,7 @@ void SetupShader(int program)
         // for each index, get the name of the subroutines, print info, and save the name in the shaders vector
         for (int j=0; j < numCompS; ++j) {
             glGetActiveSubroutineName(program, GL_FRAGMENT_SHADER, s[j], 256, &len, name);
-            std::cout << "\t" << s[j] << " - " << name << "\n";
+            std::cout << "\t" << s[j] + 1 << " - " << name << "\n";
             shaders.push_back(name);
         }
         std::cout << std::endl;
