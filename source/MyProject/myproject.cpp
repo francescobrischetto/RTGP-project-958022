@@ -138,15 +138,36 @@ GLfloat ambientColor[] = {0.8f,0.9f,1.0f};
 GLfloat Kd = 0.6f;
 GLfloat Ks = 0.3f;
 GLfloat Ka = 0.1f;
-
-//TODO: modify it
 // shininess coefficient for Phong and Blinn-Phong shaders
 GLfloat shininess = 32.0f;
 
-// uniforms used as control parameters for all the functions defined in the reference paper
+// control parameters for all the functions defined in the reference paper
+// Equation 8 chapter 5.1 and Equation 6 chapter 4.2.2 reference paper
+GLfloat lambda = 1.1;
+// Equation 8 chapter 5.1 reference paper
 GLfloat alpha = 2.0f;
-// Fresnel reflectance at 0 degree (Schlik's approximation)
-GLfloat F0 = 0.9f;
+// Equation 13 chapter 6.2 reference paper
+GLfloat r = 1.2;
+// Equation 13 chapter 6.2 reference paper
+GLfloat Ql = 4;
+
+// uniforms defined by me to compose the three components in final result of Ehnaced Toon Shading and Enhanced Gooch Shading. 
+// This was not specified in the reference paper
+GLfloat myWeightA = 0.1;
+GLfloat myWeightD = 0.9;
+
+// parameters for Toon Shading Model
+GLfloat shinestColor[] = {1.0,0.8,0.4};
+GLfloat shinyColor[]   = {0.6,0.5,0.2};
+GLfloat darkColor[]    = {0.4,0.4,0.1};
+GLfloat gloomyColor[]  = {0.2,0.1,0.1};
+
+// parameters for Gooch Shading model
+GLfloat  SurfaceColor[]   = {0.65, 0.65, 0.65};
+GLfloat  WarmColor[]      = {0.3, 0.3, 0};
+GLfloat  CoolColor[]      = {0, 0, 0.55};
+GLfloat DiffuseWarm = 0.5;
+GLfloat DiffuseCool = 0.25;
 
 // color to be passed as uniform to the shader of the plane
 GLfloat planeMaterial[] = {0.1f,1.0f,0.1f};
@@ -311,10 +332,22 @@ int main()
         GLint matSpecularLocation = glGetUniformLocation(illumination_shader.Program, "specularColor");
         GLint kaLocation = glGetUniformLocation(illumination_shader.Program, "Ka");
         GLint ksLocation = glGetUniformLocation(illumination_shader.Program, "Ks");
-        //TODO: Modify it
         GLint shineLocation = glGetUniformLocation(illumination_shader.Program, "shininess");
+        GLint lambdaLocation = glGetUniformLocation(illumination_shader.Program, "lambda");
         GLint alphaLocation = glGetUniformLocation(illumination_shader.Program, "alpha");
-        GLint f0Location = glGetUniformLocation(illumination_shader.Program, "F0");
+        GLint rLocation = glGetUniformLocation(illumination_shader.Program, "r");
+        GLint QlLocation = glGetUniformLocation(illumination_shader.Program, "Ql");
+        GLint myWeightALocation = glGetUniformLocation(illumination_shader.Program, "myWeightA");
+        GLint myWeightDLocation = glGetUniformLocation(illumination_shader.Program, "myWeightD");
+        GLint shinestColorLocation = glGetUniformLocation(illumination_shader.Program, "shinestColor");
+        GLint shinyColorLocation = glGetUniformLocation(illumination_shader.Program, "shinyColor");
+        GLint darkColorLocation = glGetUniformLocation(illumination_shader.Program, "darkColor");
+        GLint gloomyColorLocation = glGetUniformLocation(illumination_shader.Program, "gloomyColor");
+        GLint SurfaceColorLocation = glGetUniformLocation(illumination_shader.Program, "SurfaceColor");
+        GLint WarmColorLocation = glGetUniformLocation(illumination_shader.Program, "WarmColor");
+        GLint CoolColorLocation = glGetUniformLocation(illumination_shader.Program, "CoolColor");
+        GLint DiffuseWarmLocation = glGetUniformLocation(illumination_shader.Program, "DiffuseWarm");
+        GLint DiffuseCoolLocation = glGetUniformLocation(illumination_shader.Program, "DiffuseCool");
 
         // we assign the value to the uniform variables
         glUniform3fv(matDiffuseLocation, 1, diffuseColor);
@@ -322,10 +355,22 @@ int main()
         glUniform3fv(matSpecularLocation, 1, specularColor);
         glUniform1f(kaLocation, Ka);
         glUniform1f(ksLocation, Ks);
-        //TODO: Modify it
         glUniform1f(shineLocation, shininess);
+        glUniform1f(lambdaLocation, lambda);
         glUniform1f(alphaLocation, alpha);
-        glUniform1f(f0Location, F0);
+        glUniform1f(rLocation, r);
+        glUniform1f(QlLocation, Ql);
+        glUniform1f(myWeightALocation, myWeightA);
+        glUniform1f(myWeightDLocation, myWeightD);
+        glUniform3fv(shinestColorLocation, 1, shinestColor);
+        glUniform3fv(shinyColorLocation, 1, shinyColor);
+        glUniform3fv(darkColorLocation, 1, darkColor);
+        glUniform3fv(gloomyColorLocation, 1, gloomyColor);
+        glUniform3fv(SurfaceColorLocation, 1, SurfaceColor);
+        glUniform3fv(WarmColorLocation, 1, WarmColor);
+        glUniform3fv(CoolColorLocation, 1, CoolColor);
+        glUniform1f(DiffuseWarmLocation, DiffuseWarm);
+        glUniform1f(DiffuseCoolLocation, DiffuseCool);
 
         //ARMADILLO
         // we create the transformation matrix and the normals transformation matrix
