@@ -74,6 +74,10 @@ uniform vec3  CoolColor;
 uniform float DiffuseWarm;
 uniform float DiffuseCool;
 
+// uniforms for depth linearization
+uniform float near;
+uniform float far;
+
 ////////////////////////////////////////////////////////////////////
 
 // the "type" of the Subroutine
@@ -84,17 +88,13 @@ subroutine uniform ill_model Illumination_Model;
 ////////////////////////////////////////////////////////////////////
 
 ///////////////////HELPING FUNCTIONS///////////////////////
-// My proposed method for calculating curvature (used by Enhanced Blinn-Phong model)
-// Based on: https://madebyevan.com/shaders/curvature/
-float curvature(vec3 N_I)
+// Function to linearize the depth values to use depth. 
+// It can be found here: https://learnopengl.com/Advanced-OpenGL/Depth-testing
+float LinearizeDepth(float depth) 
 {
-  // We compute curvature exploiting partial derivatives of the Enhanced Surface Normal
-  vec3 dx = dFdx(N_I);
-  vec3 dy = dFdy(N_I);
-  float curvature_value = (cross(N_I - dx, N_I + dx).y - cross(N_I - dy, N_I + dy).x);
-  return clamp(curvature_value, -1, 1);
+    float z = depth * 2.0 - 1.0; // back to NDC 
+    return (2.0 * near * far) / (far + near - z * (far - near));	
 }
-
 //////////////////////////////////////////
 // Curvature-Based Reflectance Scaling Function (used by Enhanced Blinn-Phong model)
 // Defined in the reference paper in chapter 5.1
@@ -107,6 +107,20 @@ float Lr(float curvature_value, float delta)
   // This aims to correlate the reflected lightning intensity to surface curvature
   float G = delta / ( exp(P) * ( 1 - delta ) + delta );
   return G;
+}
+
+//////////////////////////////////////////
+// My proposed method for calculating curvature (used by Enhanced Blinn-Phong model)
+// Based on: https://madebyevan.com/shaders/curvature/
+float curvature(vec3 N_I)
+{
+  // We compute curvature exploiting partial derivatives of the Enhanced Surface Normal
+  vec3 dx = dFdx(N_I);
+  vec3 dy = dFdy(N_I);
+  float depth = LinearizeDepth(gl_FragCoord.z);
+  float curvature_value = (cross(N_I - dx, N_I + dx).y - cross(N_I - dy, N_I + dy).x) * 4.0 / depth;
+  return curvature_value;
+  // return clamp(curvature_value, -1, 1);
 }
 //////////////////////////////////////////
 
@@ -123,6 +137,68 @@ vec3 Lambert() // this name is the one which is detected by the SetupShaders() f
     float lambertian = max(dot(L,N), 0.0);
     // Lambert illumination model  
     return vec3(Kd * lambertian * diffuseColor);
+}
+//////////////////////////////////////////
+
+//////////////////////////////////////////
+// a subroutine to visualize Enhanced Normal vector
+subroutine(ill_model)
+vec3 VisualizeEnhancedNormal()
+{
+    // Computing the mask for Unsharp Masking
+    vec3 mask = vNormal - vSMNormal;
+    // calculating enhanced Normal using the Unsharp Masking technique
+    // This is defined, in the reference paper, in equation 6 of chapter 4.2.2
+    vec3 eNormal = vNormal + lambda * mask;
+    // normalization of the per-fragment enhanced normal 
+    vec3 N_I = normalize(eNormal);
+    return N_I;
+}
+//////////////////////////////////////////
+
+//////////////////////////////////////////
+// a subroutine to visualize Normal vector
+subroutine(ill_model)
+vec3 VisualizeNormal()
+{
+    // normalization of the per-fragment normal
+    vec3 N = normalize(vNormal);
+    return N;
+}
+//////////////////////////////////////////
+
+//////////////////////////////////////////
+// a subroutine to visualize Enhanced Curvature
+subroutine(ill_model)
+vec3 VisualizeEnhancedCurvature()
+{
+    // Computing the mask for Unsharp Masking
+    vec3 mask = vNormal - vSMNormal;
+    // calculating enhanced Normal using the Unsharp Masking technique
+    // This is defined, in the reference paper, in equation 6 of chapter 4.2.2
+    vec3 eNormal = vNormal + lambda * mask;
+    // normalization of the per-fragment enhanced normal 
+    vec3 N_I = normalize(eNormal);
+    // calculating curvature value using enhanced normal
+    float curvature_value = curvature(N_I);
+    vec3 ambient = vec3(curvature_value + 0.5);
+    return ambient;
+    
+}
+//////////////////////////////////////////
+
+//////////////////////////////////////////
+// a subroutine to visualize Curvature
+subroutine(ill_model)
+vec3 VisualizeCurvature()
+{
+    // normalization of the per-fragment normal
+    vec3 N = normalize(vNormal);
+    // calculating curvature value using normal vector
+    float curvature_value = curvature(N);
+    vec3 ambient = vec3(curvature_value + 0.5);
+    return ambient;
+    
 }
 //////////////////////////////////////////
 

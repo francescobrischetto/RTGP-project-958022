@@ -169,6 +169,10 @@ GLfloat  CoolColor[]      = {0, 0, 0.55};
 GLfloat DiffuseWarm = 0.5;
 GLfloat DiffuseCool = 0.25;
 
+// near and far planes distance
+GLfloat near = 0.1f;
+GLfloat far = 100.0f;
+
 // color to be passed as uniform to the shader of the plane
 GLfloat planeMaterial[] = {0.1f,1.0f,0.1f};
 
@@ -240,7 +244,7 @@ int main()
     Model planeModel("../../models/plane.obj");
 
     // Projection matrix: FOV angle, aspect ratio, near and far planes
-    glm::mat4 projection = glm::perspective(45.0f, (float)screenWidth/(float)screenHeight, 0.1f, 10000.0f);
+    glm::mat4 projection = glm::perspective(45.0f, (float)screenWidth/(float)screenHeight, near, far);
     // View matrix: the camera moves, so we just set to indentity now
     glm::mat4 view = glm::mat4(1.0f);
 
@@ -328,6 +332,8 @@ int main()
         glUniformSubroutinesuiv( GL_FRAGMENT_SHADER, 1, &index);
 
         // we determine the position in the Shader Program of the uniform variables
+        GLint nearLocation = glGetUniformLocation(illumination_shader.Program, "near");
+        GLint farLocation = glGetUniformLocation(illumination_shader.Program, "far");
         GLint matAmbientLocation = glGetUniformLocation(illumination_shader.Program, "ambientColor");
         GLint matSpecularLocation = glGetUniformLocation(illumination_shader.Program, "specularColor");
         GLint kaLocation = glGetUniformLocation(illumination_shader.Program, "Ka");
@@ -350,6 +356,8 @@ int main()
         GLint DiffuseCoolLocation = glGetUniformLocation(illumination_shader.Program, "DiffuseCool");
 
         // we assign the value to the uniform variables
+        glUniform1f(nearLocation, near);
+        glUniform1f(farLocation, far);
         glUniform3fv(matDiffuseLocation, 1, diffuseColor);
         glUniform3fv(matAmbientLocation, 1, ambientColor);
         glUniform3fv(matSpecularLocation, 1, specularColor);
@@ -467,7 +475,7 @@ void SetupShader(int program)
         // for each index, get the name of the subroutines, print info, and save the name in the shaders vector
         for (int j=0; j < numCompS; ++j) {
             glGetActiveSubroutineName(program, GL_FRAGMENT_SHADER, s[j], 256, &len, name);
-            std::cout << "\t" << s[j] + 1 << " - " << name << "\n";
+            std::cout << "\t" << s[j] << " - " << name << "\n";
             shaders.push_back(name);
         }
         std::cout << std::endl;
@@ -505,12 +513,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     // pressing a key number, we change the shader applied to the models
     // if the key is between 1 and 9, we proceed and check if the pressed key corresponds to
     // a valid subroutine
-    if((key >= GLFW_KEY_1 && key <= GLFW_KEY_9) && action == GLFW_PRESS)
+    if((key >= GLFW_KEY_0 && key <= GLFW_KEY_9) && action == GLFW_PRESS)
     {
         // "1" to "9" -> ASCII codes from 49 to 59
         // we subtract 48 (= ASCII CODE of "0") to have integers from 1 to 9
         // we subtract 1 to have indices from 0 to 8
-        new_subroutine = (key-'0'-1);
+        new_subroutine = (key-'0');
         // if the new index is valid ( = there is a subroutine with that index in the shaders vector),
         // we change the value of the current_subroutine variable
         // NB: we can just check if the new index is in the range between 0 and the size of the shaders vector,
