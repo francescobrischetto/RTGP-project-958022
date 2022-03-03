@@ -55,3 +55,12 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# LaTeX
+*.log
+*.aux
+*.toc
+*.out
+*.synctex.gz
+*.bbl
+*.blg
