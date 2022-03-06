@@ -1,2 +1,14 @@
 \section{Geometry-based shading Approach}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam fringilla fringilla dui id vehicula. Vestibulum aliquet, dui non viverra cursus, odio felis laoreet justo, ultricies blandit massa elit id lacus. Donec est lorem, aliquet ac gravida ac, egestas in elit. Sed sed ultrices tellus. Sed placerat nibh vel leo elementum, at aliquet turpis auctor. Etiam volutpat est risus, sit amet vehicula justo molestie sit amet. Donec fermentum libero in risus lobortis pellentesque. Sed dapibus, leo in congue dapibus, risus risus congue dolor, ac convallis lectus magna placerat ligula. Nam at turpis nisi. In scelerisque, libero vel laoreet tristique, est nunc maximus ipsum, non laoreet orci lorem ut dui. Cras vel est at ex congue congue sit amet id lectus. Nullam in tortor elementum, tempus eros vel, sagittis diam. Curabitur ultrices est nec est rhoncus malesuada. Mauris rhoncus nulla in ligula congue rhoncus. Suspendisse aliquet pellentesque lacus, nec varius neque sagittis et.
+The key of this approach is  \textit{incorporating surface curvature} information into shape depiction enhancement technique. This is done with multiple steps:
+\begin{enumerate}
+	\item  \textbf{3D Shape Descriptor:} 3D Object surface shape is analyzed using the shape descriptor. \textbf{Curvature computation} extracts salient surface features. Tts contribution can be controlled using some parameters.
+	\item \textbf{Geometry-based Shading:} the surface normals are \textit{smoothed} or \textit{sharpened} to attenuate or exaggerate the surface depiction; Then, the \textbf{reflected lightning intensity} is scaled using also surface curvature previously calculated.
+	\item \textbf{Rendering:} This shading technique is applied to various \textbf{non-photorealistic rendering styles}, reformulating the reflected radiance equation in a way that takes the enhanced shading into account.
+\end{enumerate}
+In \textbf{Figure \ref{fig:method}} the rendering pipeline is graphically illustrated.
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.75\textwidth]{Images/method.png}
+	\caption{The rendering pipeline of the paper's approach. It combines estimating the surface curvature, scaling the reflected lighting and rendering the NPR result}
+	\label{fig:method}
+\end{figure}

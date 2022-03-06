@@ -120,7 +120,7 @@ float curvature(vec3 N_I)
   float depth = LinearizeDepth(gl_FragCoord.z);
   float curvature_value = (cross(N_I - dx, N_I + dx).y - cross(N_I - dy, N_I + dy).x) * 4.0 / depth;
   return curvature_value;
-  // return clamp(curvature_value, -1, 1);
+  //  return clamp(curvature_value, -1, 1);
 }
 //////////////////////////////////////////
 
