@@ -298,11 +298,11 @@ vec3 EnhancedToonShading(){
   float specAngle = max(dot(R, V), 0.0);
   // shininess application to the specular component
   // NOTE: Reference paper use the lambertian coefficient as rho_s for specular
-  float rhoS = pow(specAngle, shininess);
+  float deltaS = pow(specAngle, shininess);
   // Composition of the final intensity to apply, then, the color choice.
   // NOTE: In the paper is not specified how the three components are composed.
   //       This is my solution that considers only Ambient and Diffuse components, while maintaning full specular component
-  float intensity = myWeightA * deltaA + myWeightD * deltaD + rhoS;
+  float intensity = myWeightA * deltaA + myWeightD * deltaD + deltaS;
   // Color choice based on intensity parameter
 	if (intensity > 0.95)       return shinestColor;
 	else if (intensity > 0.5)   return shinyColor;

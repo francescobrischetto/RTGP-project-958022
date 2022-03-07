@@ -147,7 +147,7 @@ GLfloat lambda = 1.1;
 // Equation 8 chapter 5.1 reference paper
 GLfloat alpha = 2.0f;
 // Equation 13 chapter 6.2 reference paper
-GLfloat r = 1.2;
+GLfloat r = 0.9;
 // Equation 13 chapter 6.2 reference paper
 GLfloat Ql = 4;
 
