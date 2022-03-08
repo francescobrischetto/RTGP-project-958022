@@ -12,7 +12,7 @@ With this approach, using a single light, the lightning equation becomes:
 \begin{equation}\label{eq:blinn1}
 	L_r(x,\omega_o) = \sum_j \rho_j(\omega_o,l) \mathcal{G}_j(x,\omega_o,l) L_j(l)
 \end{equation}
-In this equation, l is the direction of the light source at point x, $L_j$ corresponds to the light intensity of each component, $\rho_a$ = 1, $\rho_d(l)$ = $(n'\cdot  l)$, $\rho_d(s)$ = $(n'\cdot  r)^f$; \newline
+In this equation, l is the direction of the light source at point x, $L_j$ corresponds to the light intensity of each component, $\rho_a$ = 1, $\rho_d(l)$ = $(n'\cdot  l)$, $\rho_s(x,l)$ = $(n'\cdot  r)^f$; \newline
 $n'(x)$ is the \textbf{enhanced surface normal}, r is the reflection direction, f is the shininess parameter and $\mathcal{G}_j(x,\omega_o,l)$ corresponds to the \textbf{Curvature-based Reflectance Scaling Function}. \newline
 In particular, $\mathcal{G}_j$ is computed as:
 \begin{equation}\label{eq:blinn2}
