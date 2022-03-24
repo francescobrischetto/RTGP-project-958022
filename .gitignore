@@ -6,8 +6,8 @@
 *.lo
 *.o
 *.ilk
-*.lib
 *.exp
+*assimp-vc142-mt.lib
 
 # Debug symbols
 *.pdb
